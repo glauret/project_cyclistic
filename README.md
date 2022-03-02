@@ -18,5 +18,5 @@ The data doesn’t include the riders personal information such as name, sex, ag
 
 The repository contains:
 - The R notebook "Data_Cleaning&Preprocessing" used to collect the data, cleaning and preprocessing.
-- The vizualisations made with Tableau and used for the final presentation
-- The final presentation
+- The vizualisations made with Tableau and used for the final presentation are available here: https://public.tableau.com/app/profile/guillaume.lauret
+- The final presentation (standard version and presentation version)
