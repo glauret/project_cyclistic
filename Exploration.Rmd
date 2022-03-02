@@ -7,22 +7,129 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## R Markdown
-
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
-
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
-
-```{r cars}
-summary(cars)
+# Install and load packages
+```{r Install Packages}
+install.packages('tidyverse')
+install.packages('geosphere')
+install.packages("ggstatsplot")
 ```
 
-## Including Plots
-
-You can also embed plots, for example:
-
-```{r pressure, echo=FALSE}
-plot(pressure)
+```{r Load Libraries}
+library(tidyverse)
+library(lubridate)
+library(geosphere)
+library(ggstatsplot)
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+# Load and data overview
+```{r}
+data1 <- read_csv('data/202102-divvy-tripdata.csv')
+data2 <- read_csv('data/202103-divvy-tripdata.csv')
+data3 <- read_csv('data/202104-divvy-tripdata.csv')
+data4 <- read_csv('data/202105-divvy-tripdata.csv')
+data5 <- read_csv('data/202106-divvy-tripdata.csv')
+data6 <- read_csv('data/202107-divvy-tripdata.csv')
+data7 <- read_csv('data/202108-divvy-tripdata.csv')
+data8 <- read_csv('data/202109-divvy-tripdata.csv')
+data9 <- read_csv('data/202110-divvy-tripdata.csv')
+data10 <- read_csv('data/202111-divvy-tripdata.csv')
+data11 <- read_csv('data/202112-divvy-tripdata.csv')
+data12 <- read_csv('data/202201-divvy-tripdata.csv')
+
+data <- rbind(data1, data2, data3, data4, data5, data6, data7, data8, data9, data10, data11, data12)
+str(data)
+```
+```{r}
+glimpse(data)
+```
+
+```{r}
+colnames(data)
+```
+
+```{r}
+head(data)
+```
+
+```{r Check if the number of unique ride_id is equal to the number of row}
+count(unique(select(data, ride_id)))
+```
+
+# Data cleaning and preprocessing
+```{r Select only useful columns}
+data_new <- select(data, rideable_type, started_at, ended_at, start_lat, start_lng, end_lat, end_lng, member_casual)
+```
+
+```{r Drop na}
+data_clean <- drop_na(data_new)
+glimpse(data_clean) 
+```
+
+```{r Calculate ride duration}
+data_clean <- data_clean %>% mutate(ride_duration_min = as.numeric(round(difftime(ended_at, started_at, units= "min"), digits=0), units="mins"))
+head(data_clean)
+```
+
+```{r calculate the ride_distance between starting_point and ending point}
+data_clean <- mutate(data_clean, ride_distance_miles = (distHaversine(cbind(start_lng, start_lat), cbind(end_lng, end_lat))) * 0.621371/1000)
+head(data_clean)
+```
+# Get rid of the outliers
+```{r Check the outliers}
+str(data_clean)
+max(data_clean['ride_distance_miles'])
+min(data_clean['ride_distance_miles'])
+max(data_clean['ride_duration'])
+min(data_clean['ride_duration'])
+boxplot(data_clean$ride_distance_miles)
+boxplot(data_clean$ride_duration_min)
+```
+```{r Finding and eliminating outliers}
+Q_distance <- quantile(data_clean$ride_distance_miles, probs=c(.25, .75), na.rm = FALSE)
+Q_duration <- quantile(data_clean$ride_duration_min, probs=c(.25, .75), na.rm = FALSE)
+
+iqr_distance <- IQR(data_clean$ride_distance_miles)
+iqr_duration <- IQR(data_clean$ride_duration)
+
+up_distance <-  Q_distance[2]+1.5*iqr_distance # Upper Range distance
+up_duration <-  Q_duration[2]+1.5*iqr_duration # Upper Range duration
+
+data_clean2<- subset(data_clean, data_clean$ride_distance_miles < (Q_distance[2]+1.5*iqr_distance) & data_clean$ride_distance_miles > 0 & data_clean$ride_duration_min < (Q_duration[2]+1.5*iqr_duration) & data_clean$ride_duration_min > 0)
+```
+```{r Visualize to check there is no outlier}
+ride_distance_miles <- data_clean2$ride_distance_miles
+ride_duration_min <- data_clean2$ride_duration_min
+
+boxplot(ride_distance_miles, ride_duration_min,
+main = "Check for outliers",
+at = c(1,2),
+names = c("distance_in_miles", "duration_in_min"),
+las = 2,
+col = c("orange","red"),
+border = "brown",
+horizontal = FALSE,
+notch = TRUE
+)
+```
+# Data preprocessing 2
+```{r Calculated the everage speed for each ride}
+data_with_speed <- mutate(data_clean2, speed_miles_per_hour =  round((ride_distance_miles / ride_duration_min)*60, 1))
+head(data_with_speed)
+```
+
+
+```{r check for the day of the week of the starting point}
+data_with_days <- mutate(data_with_speed, week_day = weekdays(date(started_at)))
+head(data_with_days)
+```
+```{r Final dataset}
+data_final <- select(data_with_days, rideable_type, member_casual, started_at, start_lat, start_lng, end_lat, end_lng, ride_duration_min, ride_distance_miles, speed_miles_per_hour, week_day)
+head(data_final)
+```
+# Exporting final dataset CSV
+```{r}
+write.csv(data_final,"/Users/guillaumelauret/Desktop/Data from Google Certif/Case Study - Cyclistic/final_dataset2.csv", row.names = TRUE)
+```
+```{r}
+min(data_final['ride_duration_min'])
+```
